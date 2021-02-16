@@ -12,13 +12,12 @@ public class TruthTables {
 class Table{
 
     String original;
-    String expression;
-    Stack<String> variableList  = new Stack<String>();
+    ArrayList<String> variableList  = new ArrayList<>();
     ArrayList<String> expressionsToEvaluate = new ArrayList<>();
-    Stack<String> arguments = new Stack<String>();
-    Stack<String> parentheses = new Stack<String>();
-    Stack<String> complexParentheses = new Stack<String>();
-    ArrayList<ArrayList<String> >tableTruthValues = new ArrayList<ArrayList<String> >();
+    ArrayList<String> evaluatedExpressions = new ArrayList<>();
+    Stack<String> parentheses = new Stack<>();
+    Stack<String> complexParentheses = new Stack<>();
+    ArrayList<ArrayList<String> >tableTruthValues = new ArrayList<>();
     String input;
     int numVariables;
     int numRows;
@@ -33,61 +32,73 @@ class Table{
         stackExpressions();
         for(int i = 0; i < expressionsToEvaluate.size(); i++) {
             input = expressionsToEvaluate.get(i);
-            if(input.contains("(")) {
-                expressionsToEvaluate.remove(original);
-                expressionsToEvaluate.add(original.replace(expressionsToEvaluate.get(i), tableTruthValues.size() - 1 + ""));
-            }
-            orderOfOps();
+            orderOfOps(input);
         }
         printTable();
     }
 
-    void orderOfOps() {
-        String [] operators = new String [] {"~", "^", "V", "=>", "<=>"};
-        String [] expression;
-        int beginIndex;
-        int endIndex;
+    void orderOfOps(String expression) {
+        String [] operators = new String [] {"~", "^", "V", "=>", "<->"};
+        int leftArg = 0;
+        int rightArg = 0;
+        String operator;
+        System.out.println("evaluating exp: " + expression);
         for(int i = 0; i < operators.length; i++) {
-            while(input.contains(operators[i])) {
-                expression = findExpression(operators[i]);
-                if(operators[i].equals("~"))
-                    beginIndex = input.indexOf(operators[i]);
-                else
-                    beginIndex = input.indexOf(operators[i]) - 1;
-                endIndex = input.indexOf(operators[i]) + operators[i].length() + 1;
-                String snip = input.substring(beginIndex, endIndex);
-                input = input.replace(snip, indexAsString());
-                System.out.println(input);
-
-                switch (expression [1]) {
-                    case "~" : tableTruthValues.add(notTruthValues(expression)); break;
-                    case "^" : tableTruthValues.add(andTruthValues(expression)); break;
-                    case "V" : tableTruthValues.add(orTruthValues(expression)); break;
-                    case "=>" : tableTruthValues.add(implies(expression)); break;
-                    case "<=>" : tableTruthValues.add(biconditional(expression)); break;
+            System.out.println("Evaluating for op: " + operators[i]);
+            operator = operators[i];
+            for(int j = 0; j < expression.length() - operator.length() && expression.contains(operator); j++) {
+                if(( expression.substring(j, j + operator.length()).equals(operator))) {
+                    rightArg = findRightArgIndex(j + operator.length());
+                    if (operator != "~")
+                        leftArg = findLeftArgIndex(j - 1);
+                    switch (operator) {
+                        case "~":
+                            tableTruthValues.add(notTruthValues(rightArg));
+                            break;
+                        case "^":
+                            tableTruthValues.add(andTruthValues(leftArg, rightArg));
+                            break;
+                        case "V":
+                            tableTruthValues.add(orTruthValues(leftArg, rightArg));
+                            break;
+                        case "=>":
+                            tableTruthValues.add(implies(leftArg, rightArg));
+                            break;
+                        case "<->":
+                            tableTruthValues.add(biconditional(leftArg, rightArg));
+                            break;
                     }
+                    evaluatedExpressions.add(tableTruthValues.get(tableTruthValues.size() - 1).get(0));
+                }
             }
         }
+        evaluatedExpressions.remove(evaluatedExpressions.size() - 1);
+        evaluatedExpressions.add(expression);
+        System.out.println(evaluatedExpressions);
     }
 
-    String [] findExpression(String operator) {
-        int columnB = input.indexOf(operator) + operator.length();
-        String rightArgument = input.charAt(columnB) + "";
-        if(Character.isDigit(input.charAt(columnB))) {
-            columnB = Character.getNumericValue(input.charAt(columnB));
-            rightArgument = tableTruthValues.get(columnB).get(0);
+    int findRightArgIndex(int argIndex) {
+        String snip;
+        System.out.println(argIndex);
+        for(int i = input.length() - 1; i >= argIndex; i--) {
+            snip = input.substring(argIndex, i + 1);
+            System.out.println(snip);
+            if(evaluatedExpressions.contains(snip))
+                return evaluatedExpressions.lastIndexOf(snip) + numVariables;
         }
-        if(operator.equals("~"))
-            return new String [] {operator + rightArgument, operator, rightArgument};
-        else {
-            int columnA = input.indexOf(operator) - 1;
-            String leftArgument = input.charAt(columnA) + "";
-            if (Character.isDigit(input.charAt(columnA))) {
-                columnA = Character.getNumericValue(input.charAt(columnA));
-                leftArgument = tableTruthValues.get(columnA).get(0);
-            }
-            return new String[]{leftArgument + operator + rightArgument, operator, leftArgument, rightArgument};
+        return variableList.indexOf(input.charAt(argIndex) + "");
+    }
+
+    int findLeftArgIndex(int argIndex) {
+        String snip;
+        System.out.println(argIndex);
+        for(int i = 0; i <= argIndex; i++) {
+            snip = input.substring(i, argIndex + 1);
+            System.out.println(snip);
+            if(evaluatedExpressions.contains(snip))
+                return evaluatedExpressions.lastIndexOf(snip) + numVariables;
         }
+        return variableList.indexOf(input.charAt(argIndex) + "");
     }
 
     void searchForParentheses() {
@@ -100,7 +111,7 @@ class Table{
                 leftIndex = leftParentheses.pop();
                 String snip = original.substring(leftIndex, index + 1);
                 if(!parentheses.contains(snip)) {
-                    if (original.lastIndexOf('(') > leftIndex)
+                    if (original.lastIndexOf('(') > leftIndex && original.lastIndexOf(')') == index)
                         complexParentheses.push(snip);
                     else
                         parentheses.push(snip);
@@ -111,9 +122,10 @@ class Table{
     }
 
     void stackExpressions() {
-        expressionsToEvaluate.add(original);
         for(int index = 0; index < parentheses.size(); index++)
-            expressionsToEvaluate.add(parentheses.pop());
+            expressionsToEvaluate.add(parentheses.get(index));
+        expressionsToEvaluate.add(original);
+        System.out.println("exps to eval: " + expressionsToEvaluate);
     }
 
     void searchForVariables() {
@@ -123,10 +135,6 @@ class Table{
         System.out.println(variableList);
         numVariables = variableList.size();
         assignVariableTruthValues();
-    }
-
-    String indexAsString() {
-        return tableTruthValues.size() + "";
     }
 
     void assignVariableTruthValues() {
@@ -143,22 +151,22 @@ class Table{
             } while(row < numRows);
             tableTruthValues.add(variableTruthValues);
         }
-
-        for (int i = 0; i <= numRows; i++) {
-            for (int j = 0; j < tableTruthValues.size(); j++) {
-                System.out.print(tableTruthValues.get(j).get(i) + " ");
-            }
-            System.out.println();
-        }
     }
+
     void printTable() {
-        for (int i = 0; i <= numRows; i++) {
+        for(int j = 0; j < tableTruthValues.size(); j++)
+            System.out.print(tableTruthValues.get(j).get(0) + " ");
+        System.out.println();
+        for (int i = 1; i <= numRows; i++) {
             for (int j = 0; j < tableTruthValues.size(); j++) {
-                int spaces = tableTruthValues.get(j).get(0).length()/2;
-                for(int k = 0; k < spaces && i > 0; k++)
+                int spaces = tableTruthValues.get(j).get(0).length() + 1;
+                for(int k = 1; k < spaces/2; k++, spaces--)
                     System.out.print(" ");
-                System.out.print(tableTruthValues.get(j).get(i) + " ");
-                for(int k = 0; k < spaces && i > 0; k++)
+                System.out.print(tableTruthValues.get(j).get(i));
+                spaces--;
+                for(int k = 0; k < spaces; k++, spaces--)
+                    System.out.print(" ");
+                if(j >= numVariables)
                     System.out.print(" ");
             }
             System.out.println();
@@ -166,22 +174,12 @@ class Table{
         }
     }
 
-    void evaluate(String [] expression) {
-
-    }
-    ArrayList<String> andTruthValues(String [] expression) {
-        int indexA = 0;
-        int indexB = 0;
+    ArrayList<String> andTruthValues(int leftArg, int rightArg) {
+        String expression = tableTruthValues.get(leftArg). get(0) + "^" + tableTruthValues.get(rightArg).get(0);
         ArrayList<String> values = new ArrayList<String>();
-        values.add(expression [0]);
-        for(int i = 0; i < tableTruthValues.size(); i++) {
-            if (tableTruthValues.get(i).get(0).equals(expression[2]))
-                indexA = i;
-            if (tableTruthValues.get(i).get(0).equals(expression[3]))
-                indexB = i;
-        }
+        values.add(expression);
         for(int row = 1; row <= numRows; row++) {
-            if(tableTruthValues.get(indexA).get(row).equals("T") && tableTruthValues.get(indexB).get(row).equals("T"))
+            if(tableTruthValues.get(leftArg).get(row).equals("T") && tableTruthValues.get(rightArg).get(row).equals("T"))
                 values.add("T");
             else
                 values.add("F");
@@ -189,19 +187,12 @@ class Table{
         return values;
     }
 
-    ArrayList<String> orTruthValues(String [] expression) {
-        int indexA = 0;
-        int indexB = 0;
+    ArrayList<String> orTruthValues(int leftArg, int rightArg) {
+        String expression = tableTruthValues.get(leftArg). get(0) + "V" + tableTruthValues.get(rightArg).get(0);
         ArrayList<String> values = new ArrayList<String>();
-        values.add(expression [0]);
-        for(int i = 0; i < tableTruthValues.size(); i++) {
-            if (tableTruthValues.get(i).get(0).equals(expression[2]))
-                indexA = i;
-            if (tableTruthValues.get(i).get(0).equals(expression[3]))
-                indexB = i;
-        }
+        values.add(expression);
         for(int row = 1; row <= numRows; row++) {
-            if(tableTruthValues.get(indexA).get(row).equals("T") || tableTruthValues.get(indexB).get(row).equals("T"))
+            if(tableTruthValues.get(leftArg).get(row).equals("T") || tableTruthValues.get(rightArg).get(row).equals("T"))
                 values.add("T");
             else
                 values.add("F");
@@ -209,19 +200,12 @@ class Table{
         return values;
     }
 
-    ArrayList<String> implies(String [] expression) {
-        int indexA = 0;
-        int indexB = 0;
+    ArrayList<String> implies(int leftArg, int rightArg) {
         ArrayList<String> values = new ArrayList<String>();
-        values.add(expression [0]);
-        for(int i = 0; i < numVariables; i++) {
-            if (tableTruthValues.get(i).get(0).equals(expression [2]))
-                indexA = i;
-            if (tableTruthValues.get(i).get(0).equals(expression [3]))
-                indexB = i;
-        }
+        String expression = tableTruthValues.get(leftArg).get(0) + "=>" + tableTruthValues.get(rightArg).get(0);
+        values.add(expression);
         for(int row = 1; row <= numRows; row++) {
-            if(tableTruthValues.get(indexA).get(row).equals("T") && tableTruthValues.get(indexB).get(row).equals("F"))
+            if(tableTruthValues.get(leftArg).get(row).equals("T") && tableTruthValues.get(rightArg).get(row).equals("F"))
                 values.add("F");
             else
                 values.add("T");
@@ -229,19 +213,12 @@ class Table{
         return values;
     }
 
-    ArrayList<String> biconditional(String [] expression) {
-        int indexA = 0;
-        int indexB = 0;
+    ArrayList<String> biconditional(int leftArg, int rightArg) {
         ArrayList<String> values = new ArrayList<String>();
-        values.add(expression [0]);
-        for(int i = 0; i < numVariables; i++) {
-            if (tableTruthValues.get(i).get(0).equals(expression [2]))
-                indexA = i;
-            if (tableTruthValues.get(i).get(0).equals(expression [3]))
-                indexB = i;
-        }
+        String expression = tableTruthValues.get(leftArg).get(0) + "<->" + tableTruthValues.get(rightArg).get(0);
+        values.add(expression);
         for(int row = 1; row <= numRows; row++) {
-            if(tableTruthValues.get(indexA).get(row).equals(tableTruthValues.get(indexB).get(row)))
+            if(tableTruthValues.get(leftArg).get(row).equals(tableTruthValues.get(rightArg).get(row)))
                 values.add("T");
             else
                 values.add("F");
@@ -249,16 +226,15 @@ class Table{
         return values;
     }
 
-    ArrayList<String> notTruthValues(String [] expression) {
+    ArrayList<String> notTruthValues(int rightArg) {
         ArrayList<String> values = new ArrayList<String>();
-        values.add(expression [0]);
-        for(int i = 0; i < tableTruthValues.size(); i++)
-            if(tableTruthValues.get(i).get(0).equals(expression [2]))
-                for(int row = 1; row <= numRows; row++)
-                    if(tableTruthValues.get(i).get(row).equals("T"))
-                        values.add("F");
-                    else
-                        values.add("T");
+        String expression = "~" + tableTruthValues.get(rightArg).get(0);
+        values.add(expression);
+        for(int row = 1; row <= numRows; row++)
+            if(tableTruthValues.get(rightArg).get(row).equals("T"))
+                values.add("F");
+            else
+                values.add("T");
         return values;
     }
 
