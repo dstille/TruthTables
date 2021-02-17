@@ -203,11 +203,10 @@ class Table{
         for (int i = 0; i <= numRows; i++) {
             for (int j = 0; j < truthTable.size(); j++) {
                 int spaces = getTable(j, 0).length() - getTable(j, i).length();
-                for(int k = spaces/2; k >= 0; k--, spaces--)
+                for(int k = spaces/2; spaces >= k; spaces--)
                     System.out.print(" ");
                 System.out.print(getTable(j, i));
-                spaces--;
-                for(int k = spaces; k >= 0; k--, spaces--)
+                while(spaces-- >= 0)
                     System.out.print(" ");
                 System.out.print(" ");
             }
