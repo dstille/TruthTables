@@ -2,6 +2,10 @@ import java.util.*;
 public class TruthTables {
     public static void main(String[] args){
         Scanner keyboard = new Scanner(System.in);
+        System.out.println("This program builds a truth table for an entered logical expression containing" +
+                "\nlower case letters for propositions and logical operators.");
+        System.out.println("The operators are: " +
+                "\n~ = not\n^ = and\nV = or\n=> = implies\n<-> = biconditional (iff)");
         System.out.println("Enter expression:");
         TablePlan tablePlan = new TablePlan(keyboard.nextLine());
         tablePlan.buildPlan();
